@@ -1,37 +1,48 @@
-from typing import Dict, List, Tuple, Optional, Any
+"""Handles repository traversal and file analysis with security validation."""
+
+from typing import Dict, List, Tuple, Optional, Any, Union
 import os
 import logging
 import fnmatch
 import yaml
 from pathlib import Path
 from datetime import datetime
+from .path_utils import sanitize_path, validate_path, secure_join
 
 # Just get the logger, don't configure it
 logger = logging.getLogger(__name__)
 
 class RepositoryCrawler:
-    """Handles repository traversal and file analysis."""
+    """Handles repository traversal and file analysis with security validation."""
     
-    def __init__(self, root_path: str, config: Dict[str, Any]):
+    def __init__(self, root_path: Union[str, Path], config: Dict[str, Any]):
         """Initialize the repository crawler."""
-        self.root_path = Path(root_path)
-        
-        # Deep copy config to prevent reference issues
-        self.config = {
-            'ignore_patterns': {
-                'directories': list(config.get('ignore_patterns', {}).get('directories', [])),
-                'files': list(config.get('ignore_patterns', {}).get('files', []))
+        try:
+            # Validate and sanitize root path
+            self.root_path = sanitize_path(root_path)
+            if not validate_path(self.root_path, allow_nonexistent=True):
+                raise ValueError(f"Invalid or unsafe root path: {root_path}")
+                
+            # Deep copy config to prevent reference issues
+            self.config = {
+                'ignore_patterns': {
+                    'directories': list(config.get('ignore_patterns', {}).get('directories', [])),
+                    'files': list(config.get('ignore_patterns', {}).get('files', []))
+                }
             }
-        }
-        
-        # Cache for file tree to prevent unnecessary recalculation
-        self._file_tree_cache = None
-        self._config_hash = None
-        
-        logger.info("Starting Repository Crawler")
-        logger.debug(f"Initialized with root: {root_path}")
-        logger.debug(f"Config: {self.config}")
-        
+            
+            # Cache for file tree to prevent unnecessary recalculation
+            self._file_tree_cache = None
+            self._config_hash = None
+            
+            logger.info("Starting Repository Crawler")
+            logger.debug(f"Initialized with root: {root_path}")
+            logger.debug(f"Config: {self.config}")
+            
+        except Exception as e:
+            logger.error(f"Failed to initialize crawler: {str(e)}")
+            raise
+            
     def _get_config_hash(self) -> str:
         """Get a more reliable hash of current config for cache invalidation."""
         try:
@@ -90,8 +101,21 @@ class RepositoryCrawler:
             logger.exception("Error updating configuration")
             return False
             
+    def _is_ignored(self, path: Union[str, Path], is_dir: bool = False) -> bool:
+        """Check if a path should be ignored based on configured patterns."""
+        try:
+            path_str = str(Path(path).name)  # Only check the filename/dirname
+            patterns = (
+                self.config['ignore_patterns']['directories'] if is_dir 
+                else self.config['ignore_patterns']['files']
+            )
+            return any(fnmatch.fnmatch(path_str, pattern) for pattern in patterns)
+        except Exception as e:
+            logger.error(f"Error checking ignore status: {str(e)}")
+            return True  # Ignore on error for safety
+            
     def get_file_tree(self) -> Dict:
-        """Generate a hierarchical file tree structure with improved caching."""
+        """Generate a hierarchical file tree structure with improved caching and security."""
         try:
             current_hash = self._get_config_hash()
             
@@ -99,163 +123,89 @@ class RepositoryCrawler:
             if (self._file_tree_cache is not None and 
                 self._config_hash is not None and 
                 self._config_hash == current_hash):
-                logger.debug("Returning cached file tree")
                 return self._file_tree_cache
                 
-            logger.info("Generating new file tree structure")
-            tree = {
-                'path': str(self.root_path),
-                'contents': {}
-            }
+            # Validate root path again before scanning
+            if not validate_path(self.root_path, allow_nonexistent=True):
+                raise ValueError(f"Invalid or unsafe root path: {self.root_path}")
+                
+            tree = {'path': str(self.root_path), 'type': 'directory', 'children': []}
             
-            self._build_tree_dict(self.root_path, tree['contents'])
-            
-            # Update cache with new hash
+            for root, dirs, files in os.walk(str(self.root_path)):
+                logger.debug(f"Processing directory: {root}")
+                logger.debug(f"Found directories: {dirs}")
+                logger.debug(f"Found files: {files}")
+                
+                # Validate each directory being processed
+                if not validate_path(root, self.root_path, allow_nonexistent=True):
+                    logger.warning(f"Skipping invalid directory: {root}")
+                    continue
+                    
+                current_node = self._get_node_at_path(tree, root)
+                if not current_node:
+                    logger.warning(f"Could not find node for path: {root}")
+                    continue
+                    
+                # Process directories
+                dirs[:] = [d for d in dirs if not self._is_ignored(d, True)]
+                logger.debug(f"After filtering, directories: {dirs}")
+                for dirname in dirs:
+                    dir_path = secure_join(root, dirname)
+                    if validate_path(dir_path, self.root_path, allow_nonexistent=True):
+                        current_node['children'].append({
+                            'path': str(dir_path),
+                            'type': 'directory',
+                            'children': []
+                        })
+                        
+                # Process files
+                filtered_files = [f for f in files if not self._is_ignored(f)]
+                logger.debug(f"After filtering, files: {filtered_files}")
+                for filename in filtered_files:
+                    file_path = secure_join(root, filename)
+                    if validate_path(file_path, self.root_path, allow_nonexistent=True):
+                        current_node['children'].append({
+                            'path': str(file_path),
+                            'type': 'file'
+                        })
+                        
+            logger.debug(f"Final tree: {tree}")
             self._file_tree_cache = tree
             self._config_hash = current_hash
-            
-            logger.info("File tree generated successfully")
             return tree
             
         except Exception as e:
             logger.error(f"Error generating file tree: {str(e)}")
-            # Invalidate cache on error
-            self._invalidate_cache()
             raise
             
-    def _build_tree_dict(self, path: Path, tree: Dict) -> None:
-        """Recursively build a dictionary representation of the directory tree."""
+    def _get_node_at_path(self, tree: Dict, path: str) -> Optional[Dict]:
+        """Find a node in the tree by its path."""
         try:
-            items = []
-            try:
-                # First try to list directory contents
-                items = sorted(path.iterdir())
-            except PermissionError:
-                logger.warning(f"Permission denied accessing: {path}")
-                tree['__error__'] = 'Permission denied'
-                return
-            except OSError as e:
-                logger.warning(f"OS error accessing {path}: {e}")
-                tree['__error__'] = f'Access error: {str(e)}'
-                return
-                
-            for item in items:
-                try:
-                    if item.is_dir():
-                        if self._should_ignore_dir(item.name):
-                            logger.debug(f"Ignoring directory: {item}")
-                            continue
-                        logger.debug(f"Processing directory: {item}")
-                        tree[item.name] = {}
-                        self._build_tree_dict(item, tree[item.name])
-                    else:
-                        if self._should_ignore_file(item.name):
-                            logger.debug(f"Ignoring file: {item}")
-                            continue
-                        logger.debug(f"Including file: {item}")
-                        tree[item.name] = None
-                except Exception as e:
-                    logger.error(f"Error processing item {item}: {str(e)}")
-                    tree[f"{item.name} (error)"] = f"Error: {str(e)}"
-                    continue
-                    
-        except Exception as e:
-            logger.error(f"Error processing directory {path}: {str(e)}")
-            tree['__error__'] = f'Processing error: {str(e)}'
+            # If this is the root path, return the root node
+            if path == str(self.root_path):
+                return tree
             
-    def _should_ignore_dir(self, dirname: str) -> bool:
-        """Check if directory should be ignored with proper error handling."""
-        try:
-            patterns = self.config.get('ignore_patterns', {}).get('directories', [])
+            # Get the relative path from root
+            rel_path = Path(path).relative_to(self.root_path)
+            current_node = tree
             
-            # Convert to relative path for matching
-            dir_path = Path(dirname)
-            if not dir_path.is_absolute():
-                dir_path = self.root_path / dir_path
-                
-            try:
-                rel_path = str(dir_path.relative_to(self.root_path))
-                logger.debug(f"Checking directory: {rel_path}")
-                
-                # Check exact matches first
-                if rel_path in patterns:
-                    logger.debug(f"Directory {rel_path} exactly matches ignore pattern")
-                    return True
-                    
-                # Then check pattern matches
-                for pattern in patterns:
-                    try:
-                        if fnmatch.fnmatch(rel_path, pattern):
-                            logger.debug(f"Directory {rel_path} matches pattern {pattern}")
-                            return True
-                    except Exception as e:
-                        logger.warning(f"Error matching pattern {pattern}: {str(e)}")
-                        continue
-                        
-                return False
-                
-            except ValueError:
-                logger.warning(f"Directory {dir_path} is not relative to root {self.root_path}")
-                return False
-                
-        except Exception as e:
-            logger.error(f"Error checking directory ignore status: {str(e)}")
-            return False
-            
-    def _should_ignore_file(self, filename: str) -> bool:
-        """Check if file should be ignored with proper error handling."""
-        try:
-            patterns = self.config.get('ignore_patterns', {}).get('files', [])
-            
-            # Convert to relative path for matching
-            file_path = Path(filename)
-            if not file_path.is_absolute():
-                file_path = self.root_path / file_path
-                
-            try:
-                rel_path = str(file_path.relative_to(self.root_path))
-                logger.debug(f"Checking file: {rel_path}")
-                
-                # Check exact matches first
-                if rel_path in patterns:
-                    logger.debug(f"File {rel_path} exactly matches ignore pattern")
-                    return True
-                    
-                # Then check pattern matches
-                for pattern in patterns:
-                    try:
-                        if fnmatch.fnmatch(rel_path, pattern):
-                            logger.debug(f"File {rel_path} matches pattern {pattern}")
-                            return True
-                    except Exception as e:
-                        logger.warning(f"Error matching pattern {pattern}: {str(e)}")
-                        continue
-                        
-                # Check if any parent directory is ignored
-                current = file_path.parent
-                while current != self.root_path and current != current.parent:
-                    try:
-                        current_rel = str(current.relative_to(self.root_path))
-                        if current_rel in self.config.get('ignore_patterns', {}).get('directories', []):
-                            logger.debug(f"File {rel_path} ignored via parent directory {current_rel}")
-                            return True
-                    except ValueError:
+            # For each part of the path, find the matching child
+            for part in rel_path.parts:
+                found = False
+                for child in current_node['children']:
+                    if Path(child['path']).name == part:
+                        current_node = child
+                        found = True
                         break
-                    except Exception as e:
-                        logger.warning(f"Error checking parent directory {current}: {str(e)}")
-                        break
-                    current = current.parent
+                if not found:
+                    return None
                     
-                return False
-                
-            except ValueError:
-                logger.warning(f"File {file_path} is not relative to root {self.root_path}")
-                return False
-                
+            return current_node
+            
         except Exception as e:
-            logger.error(f"Error checking file ignore status: {str(e)}")
-            return False
-
+            logger.error(f"Error finding node at path: {str(e)}")
+            return None
+            
     def walk(self) -> List[Tuple[str, int]]:
         """
         Walk through the repository and collect file information.
@@ -268,26 +218,24 @@ class RepositoryCrawler:
         
         try:
             for root, dirs, files in os.walk(self.root_path):
-                # Filter out ignored directories
-                dirs[:] = [d for d in dirs if not self._should_ignore_dir(d)]
+                # Remove ignored directories in-place
+                dirs[:] = [d for d in dirs if not self._is_ignored(d, True)]
                 
-                for file in files:
-                    if self._should_ignore_file(file):
+                # Process files
+                for filename in files:
+                    if self._is_ignored(filename):
                         continue
                         
-                    try:
-                        file_path = Path(root) / file
-                        if file_path.is_file():  # Verify it's still a file (symlinks, etc.)
-                            rel_path = file_path.relative_to(self.root_path)
-                            size = file_path.stat().st_size
-                            files_info.append((str(rel_path), size))
-                    except Exception as e:
-                        logger.warning(f"Error processing file {file}: {str(e)}")
-                        continue
-            
-            logger.info(f"Found {len(files_info)} files in repository")
+                    file_path = secure_join(root, filename)
+                    if validate_path(file_path, self.root_path):
+                        try:
+                            size = os.path.getsize(file_path)
+                            files_info.append((str(file_path), size))
+                        except OSError as e:
+                            logger.warning(f"Could not get size for {file_path}: {e}")
+                            
             return files_info
             
         except Exception as e:
             logger.error(f"Error walking repository: {str(e)}")
-            raise 
+            raise

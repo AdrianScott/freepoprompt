@@ -1,13 +1,32 @@
+"""Home page component."""
+
 import streamlit as st
-from core.crawler import RepositoryCrawler
-from core.file_handler import FileHandler
-from app.components.file_tree import render_file_tree
-from app.components.file_viewer import render_file_viewer
-from core.tokenizer import TokenCalculator, get_available_models
+import yaml
+from pathlib import Path
+from backend.core.crawler import RepositoryCrawler
+from backend.core.file_handler import FileHandler
+from backend.core.tokenizer import TokenCalculator, get_available_models
+from frontend.components.file_tree import render_file_tree
+from frontend.components.file_viewer import render_file_viewer
+
+def load_config():
+    """Load configuration from config.yaml."""
+    try:
+        config_path = Path(__file__).parent.parent / "config" / "config.yaml"
+        with open(config_path, 'r') as f:
+            return yaml.safe_load(f)
+    except Exception as e:
+        st.error(f"Error loading config: {str(e)}")
+        return {
+            'ignore_patterns': {
+                'directories': ['.git', '__pycache__', 'venv'],
+                'files': ['*.pyc', '*.pyo', '*.log']
+            }
+        }
 
 def render():
     """Render the home page."""
-    st.title("Repository Crawler 🔍")
+    st.title("Repository Crawler ")
     
     # Repository path input
     repo_path = st.text_input(
@@ -22,16 +41,24 @@ def render():
         index=2  # Default to gpt-4
     )
     
+    # Add file write permission toggle in sidebar
+    with st.sidebar:
+        allow_writes = st.checkbox("Allow File Writes", value=False, 
+                                 help="If unchecked, file operations will be simulated and logged but not actually performed")
+    
     if st.button("Analyze Repository") and repo_path:
         with st.spinner("Analyzing repository..."):
             try:
-                # Initialize components
-                crawler = RepositoryCrawler()
-                file_handler = FileHandler()
+                # Load config
+                config = load_config()
+                
+                # Initialize components with proper parameters
+                crawler = RepositoryCrawler(root_path=repo_path, config=config)
+                file_handler = FileHandler(root_path=repo_path, allow_writes=allow_writes)
                 token_calculator = TokenCalculator()
                 
-                # Crawl repository
-                tree_str, file_paths = crawler.crawl(repo_path)
+                # Get the file tree
+                tree = crawler.get_file_tree()
                 
                 # Create tabs for different views
                 tree_tab, content_tab, tokens_tab = st.tabs([
@@ -41,10 +68,10 @@ def render():
                 ])
                 
                 with tree_tab:
-                    render_file_tree(tree_str)
+                    render_file_tree(tree)
                 
                 with content_tab:
-                    selected_file = render_file_viewer(file_paths, file_handler)
+                    selected_file = render_file_viewer(tree, file_handler)
                     
                     if selected_file:
                         st.download_button(
@@ -54,6 +81,8 @@ def render():
                         )
                 
                 with tokens_tab:
+                    # Convert tree to string for token analysis
+                    tree_str = yaml.dump(tree, default_flow_style=False)
                     render_token_analysis(tree_str, token_calculator, model)
                         
             except Exception as e:
@@ -61,7 +90,7 @@ def render():
 
 def render_token_analysis(text: str, calculator: TokenCalculator, model: str):
     """Render token analysis section."""
-    st.subheader("Token Analysis 🔢")
+    st.subheader("Token Analysis ")
     
     analysis = calculator.analyze_text(text, model)
     
