@@ -87,6 +87,47 @@ def analyze_codebase(repo_path: str, file_handler: FileHandler, file_tree: Dict[
         logger.error(f"Error generating codebase overview: {str(e)}")
         return None
 
+def _generate_tree_structure(root_path: Path, file_tree: Dict[str, Any]) -> str:
+    """Generate a tree-style ASCII representation of the project structure."""
+    def _add_node(node: Dict[str, Any], prefix: str = "", is_last: bool = True) -> List[str]:
+        lines = []
+        path = Path(node['path'])
+        name = path.name or str(path)
+        connector = "└── " if is_last else "├── "
+        
+        # Get docstring comment if it's a Python file
+        comment = ""
+        if path.suffix == '.py':
+            try:
+                with open(path, 'r') as f:
+                    content = f.read()
+                    import ast
+                    try:
+                        tree = ast.parse(content)
+                        if ast.get_docstring(tree):
+                            comment = ast.get_docstring(tree).split('\n')[0]
+                    except:
+                        pass
+            except:
+                pass
+        
+        line = f"{prefix}{connector}{name}"
+        if comment:
+            line = f"{line:<40} # {comment}"
+        lines.append(line)
+        
+        if node['type'] == 'directory':
+            children = node.get('children', [])
+            for i, child in enumerate(children):
+                is_last_item = (i == len(children) - 1)
+                new_prefix = prefix + ("    " if is_last else "│   ")
+                lines.extend(_add_node(child, new_prefix, is_last_item))
+        
+        return lines
+    
+    tree_lines = _add_node(file_tree)
+    return "\n".join(tree_lines)
+
 def build_prompt(repo_path: str, file_tree: Dict[str, Any], file_handler: FileHandler) -> str:
     """Build a formatted prompt from the codebase contents."""
     try:
@@ -104,6 +145,14 @@ def build_prompt(repo_path: str, file_tree: Dict[str, Any], file_handler: FileHa
         prompt_parts.append("<repository>")
         prompt_parts.append(f"<name>{repo_name}</name>")
         prompt_parts.append(f"<file_count>{len(files_info)}</file_count>")
+        
+        # Add project structure
+        tree_structure = _generate_tree_structure(Path(repo_path), file_tree)
+        prompt_parts.append("<project_structure>")
+        prompt_parts.append("<![CDATA[")
+        prompt_parts.append(tree_structure)
+        prompt_parts.append("]]>")
+        prompt_parts.append("</project_structure>")
         
         # Add loaded rules if any
         if hasattr(st.session_state, 'loaded_rules') and st.session_state.loaded_rules:

@@ -19,6 +19,59 @@ class PromptGeneratorComponent:
         self.file_handler = file_handler
         self.token_calculator = TokenCalculator()
         
+    def _generate_tree_structure(self, root_path: Path) -> str:
+        """Generate a tree-style ASCII representation of the project structure."""
+        def _add_node(path: Path, prefix: str = "", is_last: bool = True) -> List[str]:
+            lines = []
+            connector = "└── " if is_last else "├── "
+            name = path.name or str(path)
+            
+            # Get docstring comment if it's a Python file
+            comment = ""
+            if path.suffix == '.py':
+                try:
+                    with open(path, 'r') as f:
+                        content = f.read()
+                        import ast
+                        try:
+                            tree = ast.parse(content)
+                            if ast.get_docstring(tree):
+                                comment = ast.get_docstring(tree).split('\n')[0]
+                        except:
+                            pass
+                except:
+                    pass
+            
+            line = f"{prefix}{connector}{name}"
+            if comment:
+                line = f"{line:<40} # {comment}"
+            lines.append(line)
+            
+            if path.is_dir():
+                # Sort contents
+                contents = sorted(list(path.iterdir()))
+                # Filter out unwanted files/dirs
+                contents = [p for p in contents if not self._should_ignore(p)]
+                
+                for i, sub_path in enumerate(contents):
+                    is_last_item = (i == len(contents) - 1)
+                    new_prefix = prefix + ("    " if is_last else "│   ")
+                    lines.extend(_add_node(sub_path, new_prefix, is_last_item))
+            
+            return lines
+        
+        def _should_ignore(path: Path) -> bool:
+            """Check if path should be ignored."""
+            ignore_patterns = [
+                "__pycache__", ".git", ".env", "venv",
+                "*.pyc", "*.pyo", "*.pyd", ".DS_Store"
+            ]
+            return any(path.match(pattern) for pattern in ignore_patterns)
+        
+        # Generate tree starting from root
+        tree_lines = _add_node(root_path)
+        return "\n".join(tree_lines)
+        
     def _generate_file_summary(self, file_path: str) -> Optional[Dict[str, Any]]:
         """Generate a summary for a single file."""
         try:
@@ -47,6 +100,11 @@ class PromptGeneratorComponent:
             # Add context if provided
             if context:
                 prompt_parts.append(f"Context:\n{context}\n")
+            
+            # Add project structure
+            root_path = Path(self.config['path'])
+            tree_structure = self._generate_tree_structure(root_path)
+            prompt_parts.append(f"Project Structure:\n{tree_structure}\n")
             
             # Add file contents
             for file_info in files:
