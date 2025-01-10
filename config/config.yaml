@@ -1,47 +1,48 @@
-path: /media/user/a16/dev/freepoprompt
+path: /media/user/a16/dev/block-nft-parser
 ignore_patterns:
   directories:
-  - __pycache__
-  - .git
-  - node_modules
-  - venv
-  - .venv
-  - env
-  - .env
-  - build
-  - dist
-  - .pytest_cache
+    - __pycache__
+    - .git
+    - node_modules
+    - venv
+    - .venv
+    - env
+    - .env
+    - build
+    - dist
+    - .pytest_cache
+    - target
   files:
-  - '*.pyc'
-  - '*.pyo'
-  - '*.pyd'
-  - .DS_Store
-  - Thumbs.db
-  - '*.log'
-  - '*.sqlite'
-  - '*.db'
+    - "*.pyc"
+    - "*.pyo"
+    - "*.pyd"
+    - .DS_Store
+    - Thumbs.db
+    - "*.log"
+    - "*.sqlite"
+    - "*.db"
 max_file_size: 1048576
 max_files: 1000
 excluded_extensions:
-- .jpg
-- .jpeg
-- .png
-- .gif
-- .bmp
-- .mp3
-- .mp4
-- .avi
-- .mov
-- .zip
-- .tar
-- .gz
-- .7z
-- .exe
-- .dll
-- .so
-- .dylib
+  - .jpg
+  - .jpeg
+  - .png
+  - .gif
+  - .bmp
+  - .mp3
+  - .mp4
+  - .avi
+  - .mov
+  - .zip
+  - .tar
+  - .gz
+  - .7z
+  - .exe
+  - .dll
+  - .so
+  - .dylib
 saved_rules:
-  global-rules.txt: 'Treat me as an advanced developer you report to.
+  global-rules.txt: "Treat me as an advanced developer you report to.
 
 
     Provide detailed technical info on changes.
@@ -86,8 +87,9 @@ saved_rules:
     - If you update environment variables, update the `.env.example` file
 
 
-    '
-  o1-format.txt: "You will respond with 2 sections: A summary section and an XML section.\n\
+    "
+  o1-format.txt:
+    "You will respond with 2 sections: A summary section and an XML section.\n\
     \nHere are some notes on how you should respond in the summary section:\n\nProvide\
     \ a brief overall summary\nProvide a 1-sentence summary for each file changed\
     \ and why.\nProvide a 1-sentence summary for each file deleted and why.\nFormat\
@@ -106,7 +108,7 @@ saved_rules:
     \ <file_path>FILE PATH HERE</file_path> <file_code></file_code></file> REMAINING\
     \ FILES HERE </changed_files> </code_changes>\n\nSo the XML section will be:\n\
     \n__XML HERE__\n"
-  o1-pro-base.txt: 'You are an expert software engineer.
+  o1-pro-base.txt: "You are an expert software engineer.
 
 
     You are tasked with following my instructions.
@@ -115,4 +117,4 @@ saved_rules:
     Use the included project instructions as a general guide.
 
 
-    '
+    "

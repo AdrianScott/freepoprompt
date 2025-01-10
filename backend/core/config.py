@@ -20,7 +20,8 @@ DEFAULT_CONFIG = {
             '.env',
             'build',
             'dist',
-            '.pytest_cache'
+            '.pytest_cache',
+            'target'
         ],
         'files': [
             '*.pyc',
