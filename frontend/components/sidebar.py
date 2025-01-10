@@ -291,7 +291,8 @@ class SidebarComponent:
             dir_patterns = st.text_area(
                 "Enter directory patterns to ignore (one per line)",
                 value="\n".join(st.session_state.config.get('ignore_patterns', {}).get('directories', [])),
-                help="Example: node_modules, .git, __pycache__"
+                help="Example: node_modules, .git, __pycache__",
+                key="sidebar_dir_patterns"
             )
             
             # File patterns
@@ -299,11 +300,12 @@ class SidebarComponent:
             file_patterns = st.text_area(
                 "Enter file patterns to ignore (one per line)",
                 value="\n".join(st.session_state.config.get('ignore_patterns', {}).get('files', [])),
-                help="Example: *.pyc, *.log, .env"
+                help="Example: *.pyc, *.log, .env",
+                key="sidebar_file_patterns"
             )
             
             # Update button
-            if st.button("Update Ignore Patterns"):
+            if st.button("Update Ignore Patterns", key="sidebar_update_patterns"):
                 # Parse patterns
                 dir_list = [p.strip() for p in dir_patterns.split('\n') if p.strip()]
                 file_list = [p.strip() for p in file_patterns.split('\n') if p.strip()]
