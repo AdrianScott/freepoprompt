@@ -215,27 +215,15 @@ def render_codebase_view(file_handler: FileHandler, crawler: RepositoryCrawler):
                 tree_str = yaml.dump(file_tree, default_flow_style=False)
                 token_calculator = TokenCalculator()
                 
-                # Show token analysis above tabs
+                # Show token analysis above overview
                 render_token_analysis(tree_str, token_calculator, st.session_state.config.get('model', 'gpt-4'))
                 
-                # Create tabs for different views
-                overview_tab, prompt_tab = st.tabs([
-                    "Overview", 
-                    "Generated Prompt"
-                ])
-                
-                with overview_tab:
-                    # Analyze codebase
-                    overview = analyze_codebase(repo_path, file_handler, file_tree)
-                    if overview is None:
-                        st.error("Failed to analyze codebase")
-                        return
-                    st.code(overview, language="markdown")
-                
-                with prompt_tab:
-                    # Build prompt
-                    prompt = build_prompt(repo_path, file_tree, file_handler)
-                    st.code(prompt, language="xml")
+                # Analyze codebase
+                overview = analyze_codebase(repo_path, file_handler, file_tree)
+                if overview is None:
+                    st.error("Failed to analyze codebase")
+                    return
+                st.code(overview, language="markdown")
                 
             except Exception as e:
                 logger.error(f"Error generating codebase overview: {str(e)}")
