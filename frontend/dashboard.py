@@ -9,7 +9,6 @@ from backend.core.crawler import RepositoryCrawler
 from backend.core.config import load_config, save_config
 from frontend.components.file_tree import render_file_tree
 from frontend.components.file_viewer import render_file_viewer
-from frontend.components.ignore_tree import render_ignore_tree
 from frontend.codebase_view import render_codebase_view
 from frontend.components.sidebar import SidebarComponent
 
@@ -41,16 +40,11 @@ def render_dashboard():
         # Create columns for layout
         file_explorer, code_viewer = st.columns([1, 2])  # Renamed columns for clarity
 
-        with file_explorer:  # Left column for file tree and ignore patterns
-            # st.header("File Explorer")
+        with file_explorer:  # Left column for file tree
             # Render file tree
             render_file_tree(config, file_handler, crawler)
 
-            # Render ignore patterns
-            render_ignore_tree(config, file_handler, crawler)
-
         with code_viewer:  # Right column for viewing and analyzing code
-            # st.header("Code Viewer")
             # Render file viewer
             render_file_viewer(config, file_handler, crawler)
 

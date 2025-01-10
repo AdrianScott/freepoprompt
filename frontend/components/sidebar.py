@@ -204,6 +204,123 @@ class SidebarComponent:
             del st.session_state.config_hash
         self.save_config(self.default_config)
 
+    def _render_rules_tab(self):
+        """Render the rules management tab."""
+        st.markdown("### Rule Management")
+
+        # Add new rule button
+        if st.button("Create New Rule", key="create_new_rule"):
+            if 'new_rule_name' not in st.session_state:
+                st.session_state.new_rule_name = ""
+            if 'new_rule_content' not in st.session_state:
+                st.session_state.new_rule_content = ""
+            st.session_state.creating_new_rule = True
+
+        # New rule creation form
+        if st.session_state.get('creating_new_rule', False):
+            st.markdown("#### Create New Rule")
+            new_rule_name = st.text_input("Rule Name",
+                                        value=st.session_state.new_rule_name,
+                                        key="new_rule_name_input",
+                                        help="Enter a name for your rule (e.g. my_rule.cursorrules)")
+            new_rule_content = st.text_area("Rule Content",
+                                          value=st.session_state.new_rule_content,
+                                          key="new_rule_content_input",
+                                          height=200,
+                                          help="Enter the content of your rule")
+
+            col1, col2 = st.columns([1, 1])
+            with col1:
+                if st.button("Save Rule", key="save_new_rule"):
+                    if new_rule_name and new_rule_content:
+                        # Save rule to config
+                        st.session_state.config.setdefault('saved_rules', {})
+                        st.session_state.config['saved_rules'][new_rule_name] = new_rule_content
+                        # Update loaded rules
+                        st.session_state.loaded_rules[new_rule_name] = new_rule_content
+                        # Save config
+                        self.save_config(st.session_state.config)
+                        # Clear form
+                        st.session_state.creating_new_rule = False
+                        st.session_state.new_rule_name = ""
+                        st.session_state.new_rule_content = ""
+                        st.rerun()
+            with col2:
+                if st.button("Cancel", key="cancel_new_rule"):
+                    st.session_state.creating_new_rule = False
+                    st.session_state.new_rule_name = ""
+                    st.session_state.new_rule_content = ""
+                    st.rerun()
+
+        # Show existing rules
+        st.markdown("#### Existing Rules")
+        if not st.session_state.loaded_rules:
+            st.info("No rules added yet")
+        else:
+            for rule_name, rule_content in st.session_state.loaded_rules.items():
+                with st.expander(rule_name):
+                    st.code(rule_content)
+                    if st.button("Delete Rule", key=f"delete_{rule_name}"):
+                        # Remove from loaded rules
+                        del st.session_state.loaded_rules[rule_name]
+                        # Remove from config
+                        if rule_name in st.session_state.config.get('saved_rules', {}):
+                            del st.session_state.config['saved_rules'][rule_name]
+                            self.save_config(st.session_state.config)
+                        st.rerun()
+
+    def _render_files_tab(self):
+        """Render the files management tab."""
+        st.markdown("### File Filtering")
+        
+        # Create subtabs for patterns and preview
+        patterns_tab, preview_tab = st.tabs(["Patterns", "Preview"])
+        
+        with patterns_tab:
+            # Directory patterns
+            st.write("Directory Patterns")
+            dir_patterns = st.text_area(
+                "Enter directory patterns to ignore (one per line)",
+                value="\n".join(st.session_state.config.get('ignore_patterns', {}).get('directories', [])),
+                help="Example: node_modules, .git, __pycache__"
+            )
+            
+            # File patterns
+            st.write("File Patterns")
+            file_patterns = st.text_area(
+                "Enter file patterns to ignore (one per line)",
+                value="\n".join(st.session_state.config.get('ignore_patterns', {}).get('files', [])),
+                help="Example: *.pyc, *.log, .env"
+            )
+            
+            # Update button
+            if st.button("Update Ignore Patterns"):
+                # Parse patterns
+                dir_list = [p.strip() for p in dir_patterns.split('\n') if p.strip()]
+                file_list = [p.strip() for p in file_patterns.split('\n') if p.strip()]
+                
+                # Update config
+                st.session_state.config['ignore_patterns'] = {
+                    'directories': dir_list,
+                    'files': file_list
+                }
+                self.save_config(st.session_state.config)
+                st.success("Ignore patterns updated!")
+        
+        with preview_tab:
+            st.write("Ignored Patterns Preview")
+            patterns = st.session_state.config.get('ignore_patterns', {})
+            
+            if patterns.get('directories'):
+                st.write("Directories:")
+                for pattern in patterns['directories']:
+                    st.code(pattern)
+            
+            if patterns.get('files'):
+                st.write("Files:")
+                for pattern in patterns['files']:
+                    st.code(pattern)
+
     def render(self):
         """Render the sidebar."""
         with st.sidebar:
@@ -269,126 +386,12 @@ class SidebarComponent:
                     st.session_state.config['path'] = repo_path
                     self.save_config(st.session_state.config)
 
-            # Rules tab - dedicated rules management
+            # Rules tab
             with rules_tab:
-                st.markdown("### Rule Management")
+                self._render_rules_tab()
 
-                # Add new rule button
-                if st.button("Create New Rule", key="create_new_rule"):
-                    if 'new_rule_name' not in st.session_state:
-                        st.session_state.new_rule_name = ""
-                    if 'new_rule_content' not in st.session_state:
-                        st.session_state.new_rule_content = ""
-                    st.session_state.creating_new_rule = True
-
-                # New rule creation form
-                if st.session_state.get('creating_new_rule', False):
-                    st.markdown("#### Create New Rule")
-                    new_rule_name = st.text_input("Rule Name",
-                                                value=st.session_state.new_rule_name,
-                                                key="new_rule_name_input",
-                                                help="Enter a name for your rule (e.g. my_rule.cursorrules)")
-                    new_rule_content = st.text_area("Rule Content",
-                                                  value=st.session_state.new_rule_content,
-                                                  key="new_rule_content_input",
-                                                  height=200,
-                                                  help="Enter the content of your rule")
-
-                    col1, col2 = st.columns([1, 1])
-                    with col1:
-                        if st.button("Save Rule", key="save_new_rule"):
-                            if new_rule_name and new_rule_content:
-                                if not new_rule_name.endswith('.cursorrules'):
-                                    new_rule_name += '.cursorrules'
-                                st.session_state.loaded_rules[new_rule_name] = new_rule_content
-                                st.session_state.config['saved_rules'][new_rule_name] = new_rule_content
-                                self.save_config(st.session_state.config)
-                                st.session_state.creating_new_rule = False
-                                st.session_state.new_rule_name = ""
-                                st.session_state.new_rule_content = ""
-                                st.rerun()
-                    with col2:
-                        if st.button("Cancel", key="cancel_new_rule"):
-                            st.session_state.creating_new_rule = False
-                            st.session_state.new_rule_name = ""
-                            st.session_state.new_rule_content = ""
-                            st.rerun()
-
-                # Show existing rules
-                if st.session_state.loaded_rules:
-                    st.markdown("### Existing Rules")
-                    for filename in list(st.session_state.loaded_rules.keys()):
-                        with st.expander(f" {filename}"):
-                            # Show rule content
-                            rule_content = st.text_area(
-                                "Rule Content",
-                                value=st.session_state.loaded_rules[filename],
-                                key=f"rule_content_{filename}",
-                                height=200
-                            )
-
-                            # Update button
-                            col1, col2 = st.columns([1, 1])
-                            with col1:
-                                if st.button("Update", key=f"update_rule_{filename}"):
-                                    st.session_state.loaded_rules[filename] = rule_content
-                                    st.session_state.config['saved_rules'][filename] = rule_content
-                                    self.save_config(st.session_state.config)
-                                    st.success(f"Updated {filename}")
-                            with col2:
-                                if st.button("Delete", key=f"delete_rule_{filename}"):
-                                    del st.session_state.loaded_rules[filename]
-                                    if filename in st.session_state.config['saved_rules']:
-                                        del st.session_state.config['saved_rules'][filename]
-                                    self.save_config(st.session_state.config)
-                                    st.rerun()
-                else:
-                    st.info("No rules loaded. Create a new rule or upload existing ones.")
-
-                # File uploader for rules
-                st.markdown("### Upload Rules")
-                uploaded_files = st.file_uploader(
-                    "Upload rule files",
-                    type=['cursorrules', 'txt', 'md'],
-                    help="Upload .cursorrules or text files containing rules",
-                    accept_multiple_files=True,
-                    key=f"rules_uploader_{len(st.session_state.loaded_rules)}"
-                )
-
-                if uploaded_files:
-                    for uploaded_file in uploaded_files:
-                        try:
-                            if uploaded_file.name not in st.session_state.loaded_rules:
-                                content = uploaded_file.getvalue().decode('utf-8')
-                                st.session_state.loaded_rules[uploaded_file.name] = content
-                                st.session_state.config['saved_rules'][uploaded_file.name] = content
-                                self.save_config(st.session_state.config)
-                                st.success(f"Rule loaded: {uploaded_file.name}")
-                        except Exception as e:
-                            logger.error(f"Error processing rule file {uploaded_file.name}: {str(e)}")
-                            st.error(f"Failed to process file: {uploaded_file.name}")
-
-            # Files tab - placeholder for ignore tree
+            # Files tab
             with files_tab:
-                if repo_path and Path(repo_path).exists():
-                    from frontend.components.ignore_tree import IgnoreTreeComponent
-
-                    # Only reinitialize crawler if repo path changes or config changes
-                    config_hash = str(hash(str(st.session_state.config)))
-                    if ('crawler' not in st.session_state or
-                        'config_hash' not in st.session_state or
-                        st.session_state.config_hash != config_hash):
-                        from backend.core.crawler import RepositoryCrawler
-                        logger.info("Initializing new crawler")
-                        repo_path = st.session_state.config.get('path', '')
-                        st.session_state.crawler = RepositoryCrawler(repo_path, st.session_state.config)
-                        st.session_state.config_hash = config_hash
-
-                    # Get file tree and render ignore tree
-                    file_tree = st.session_state.crawler.get_file_tree()
-                    ignore_tree = IgnoreTreeComponent(file_tree)
-                    ignore_tree.render()
-                else:
-                    st.info("Please enter a valid repository path in the Settings tab to manage ignore patterns.")
+                self._render_files_tab()
 
             return st.session_state.config.get('path', '')
