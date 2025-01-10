@@ -78,7 +78,16 @@ class SidebarComponent:
                 # Initialize loaded_rules from config's saved_rules
                 if 'loaded_rules' not in st.session_state:
                     st.session_state.loaded_rules = {}
-                st.session_state.loaded_rules = st.session_state.config['saved_rules'].copy()
+                if 'creating_new_rule' not in st.session_state:
+                    st.session_state.creating_new_rule = False
+                if 'new_rule_name' not in st.session_state:
+                    st.session_state.new_rule_name = ""
+                if 'new_rule_content' not in st.session_state:
+                    st.session_state.new_rule_content = ""
+
+                # Load saved rules into loaded_rules
+                if 'saved_rules' in st.session_state.config:
+                    st.session_state.loaded_rules.update(st.session_state.config['saved_rules'])
 
                 # Initialize other state
                 if 'loaded_config' not in st.session_state:
