@@ -28,7 +28,8 @@ class RepositoryCrawler:
                 'ignore_patterns': {
                     'directories': list(config.get('ignore_patterns', {}).get('directories', [])),
                     'files': list(config.get('ignore_patterns', {}).get('files', []))
-                }
+                },
+                'excluded_extensions': list(config.get('excluded_extensions', []))
             }
             
             # Cache for file tree to prevent unnecessary recalculation
@@ -51,10 +52,11 @@ class RepositoryCrawler:
                 'ignore_patterns': {
                     'directories': sorted(self.config['ignore_patterns']['directories']),
                     'files': sorted(self.config['ignore_patterns']['files'])
-                }
+                },
+                'excluded_extensions': sorted(self.config['excluded_extensions'])
             }
             # Use stable string representation
-            config_str = f"dirs:{','.join(sorted_config['ignore_patterns']['directories'])}|files:{','.join(sorted_config['ignore_patterns']['files'])}"
+            config_str = f"dirs:{','.join(sorted_config['ignore_patterns']['directories'])}|files:{','.join(sorted_config['ignore_patterns']['files'])}|exts:{','.join(sorted_config['excluded_extensions'])}"
             return str(hash(config_str))
         except Exception as e:
             logger.error(f"Error calculating config hash: {str(e)}")
@@ -77,8 +79,9 @@ class RepositoryCrawler:
             # Extract and validate patterns
             new_dirs = list(new_config.get('ignore_patterns', {}).get('directories', []))
             new_files = list(new_config.get('ignore_patterns', {}).get('files', []))
+            new_exts = list(new_config.get('excluded_extensions', []))
             
-            if not all(isinstance(p, str) for p in new_dirs + new_files):
+            if not all(isinstance(p, str) for p in new_dirs + new_files + new_exts):
                 logger.error("Invalid pattern type found - all patterns must be strings")
                 return False
                 
@@ -87,7 +90,8 @@ class RepositoryCrawler:
                 'ignore_patterns': {
                     'directories': new_dirs,
                     'files': new_files
-                }
+                },
+                'excluded_extensions': new_exts
             }
             
             # Invalidate cache
@@ -105,11 +109,24 @@ class RepositoryCrawler:
         """Check if a path should be ignored based on configured patterns."""
         try:
             path_str = str(Path(path).name)  # Only check the filename/dirname
-            patterns = (
-                self.config['ignore_patterns']['directories'] if is_dir 
-                else self.config['ignore_patterns']['files']
-            )
-            return any(fnmatch.fnmatch(path_str, pattern) for pattern in patterns)
+            
+            # Directory check
+            if is_dir:
+                patterns = self.config['ignore_patterns']['directories']
+                return any(fnmatch.fnmatch(path_str, pattern) for pattern in patterns)
+            
+            # File check
+            patterns = self.config['ignore_patterns']['files']
+            if any(fnmatch.fnmatch(path_str, pattern) for pattern in patterns):
+                return True
+                
+            # Extension check
+            extension = Path(path_str).suffix.lower()
+            if extension in self.config['excluded_extensions']:
+                return True
+                
+            return False
+            
         except Exception as e:
             logger.error(f"Error checking ignore status: {str(e)}")
             return True  # Ignore on error for safety

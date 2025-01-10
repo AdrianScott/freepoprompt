@@ -87,11 +87,48 @@ class FileTreeComponent:
             st.error("Error rendering file tree. Please check the logs for details.")
             return None
 
+def _generate_tree_structure(root_path: Path, file_tree: Dict[str, Any], prefix: str = "") -> str:
+    """Generate a tree-style ASCII representation of the project structure."""
+    try:
+        if not file_tree:
+            return ""
+            
+        lines = []
+        path = Path(file_tree['path'])
+        name = path.name or str(path)
+        
+        # Add this node
+        if prefix:  # Not root
+            lines.append(f"{prefix}{'└── ' if prefix.endswith('    ') else '├── '}{name}")
+        
+        # Process children if this is a directory
+        if file_tree['type'] == 'directory' and 'children' in file_tree:
+            children = file_tree['children']
+            for i, child in enumerate(children):
+                is_last = i == len(children) - 1
+                new_prefix = prefix + ('    ' if prefix.endswith('    ') or not prefix else '│   ')
+                child_tree = _generate_tree_structure(root_path, child, new_prefix)
+                if child_tree:
+                    lines.append(child_tree)
+        
+        return "\n".join(lines)
+        
+    except Exception as e:
+        logger.error(f"Error generating tree structure: {str(e)}")
+        return ""
+
 def render_file_tree(config: Dict[str, Any], file_handler: FileHandler, crawler: RepositoryCrawler) -> Optional[str]:
     """Render the file tree component."""
     try:
         # Get the file tree from the crawler
         file_tree = crawler.get_file_tree()
+        
+        # Add Generate File Tree button
+        if st.button("Generate File Tree", key="generate_file_tree"):
+            # Generate ASCII tree structure
+            tree_structure = _generate_tree_structure(Path(config.get('path', '')), file_tree)
+            if tree_structure:
+                st.code(tree_structure, language="")
         
         # Create and render the component
         component = FileTreeComponent(file_tree)
