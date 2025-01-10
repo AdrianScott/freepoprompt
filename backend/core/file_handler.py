@@ -16,7 +16,7 @@ class FileHandler:
         """
         self.logger = logging.getLogger(__name__)
         self.root_path = Path(root_path) if root_path else None
-        self.allow_writes = allow_writes
+        self.allow_writes = False # If True, allows actual file creation/modification. If False, only simulates writes. Default is False for security reasons. allow_writes
 
     def read_file(self, file_path: Union[str, Path]) -> Optional[str]:
         """
