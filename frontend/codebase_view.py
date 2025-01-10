@@ -53,38 +53,40 @@ def process_tree(node: Dict[str, Any], file_handler: FileHandler) -> List[Dict[s
         
     return files_info
 
-def analyze_codebase(repo_path: str, file_handler: FileHandler, file_tree: Dict[str, Any]) -> Optional[str]:
+def analyze_codebase(repo_path: str, file_handler: FileHandler, file_tree: Dict[str, Any]) -> str:
     """Analyze the codebase and generate an overview."""
     try:
-        # Process the file tree
-        files_info = process_tree(file_tree, file_handler)
-        
-        if not files_info:
-            return None
-            
-        # Build overview
         overview = []
         
-        # Add repository information
-        overview.append(f"Repository Path: {repo_path}")
-        overview.append(f"Total Files: {len(files_info)}")
-        overview.append("")
+        # Generate file tree
+        tree_structure = _generate_tree_structure(Path(repo_path), file_tree)
+        overview.append("<file_tree>")
+        overview.append(tree_structure)
+        overview.append("</file_tree>\n")
         
-        # Add file information
+        # Generate file contents
+        overview.append("<file_contents>")
+        files_info = process_tree(file_tree, file_handler)
         for file_info in files_info:
-            file_path = file_info['path']
-            content = file_info.get('content', '')
-            
-            overview.append(f"File: {file_path}")
-            overview.append(f"Size: {len(content)} bytes")
-            overview.append("---")
-            overview.append(content)
-            overview.append("")
-            
+            rel_path = str(Path(file_info['path']).relative_to(repo_path))
+            extension = Path(rel_path).suffix.lstrip('.') or 'txt'  # Default to txt if no extension
+            overview.append(f"File: {rel_path}")
+            overview.append(f"```{extension}")
+            overview.append(file_info['content'])
+            overview.append("```\n")
+        overview.append("</file_contents>\n")
+        
+        # Add rules
+        if 'saved_rules' in st.session_state.config:
+            for i, (rule_name, rule_content) in enumerate(st.session_state.config['saved_rules'].items(), 1):
+                overview.append(f'<meta prompt {i} = "{rule_name}">')
+                overview.append(rule_content)
+                overview.append(f'</meta prompt {i}>\n')
+        
         return "\n".join(overview)
         
     except Exception as e:
-        logger.error(f"Error generating codebase overview: {str(e)}")
+        logger.error(f"Error analyzing codebase: {str(e)}")
         return None
 
 def _generate_tree_structure(root_path: Path, file_tree: Dict[str, Any]) -> str:
@@ -209,11 +211,17 @@ def render_codebase_view(file_handler: FileHandler, crawler: RepositoryCrawler):
                 # Get file tree from crawler
                 file_tree = crawler.get_file_tree()
                 
+                # Convert tree to string for token analysis
+                tree_str = yaml.dump(file_tree, default_flow_style=False)
+                token_calculator = TokenCalculator()
+                
+                # Show token analysis above tabs
+                render_token_analysis(tree_str, token_calculator, st.session_state.config.get('model', 'gpt-4'))
+                
                 # Create tabs for different views
-                overview_tab, prompt_tab, tokens_tab = st.tabs([
+                overview_tab, prompt_tab = st.tabs([
                     "Overview", 
-                    "Generated Prompt",
-                    "Token Analysis"
+                    "Generated Prompt"
                 ])
                 
                 with overview_tab:
@@ -228,12 +236,6 @@ def render_codebase_view(file_handler: FileHandler, crawler: RepositoryCrawler):
                     # Build prompt
                     prompt = build_prompt(repo_path, file_tree, file_handler)
                     st.code(prompt, language="xml")
-                
-                with tokens_tab:
-                    # Convert tree to string for token analysis
-                    tree_str = yaml.dump(file_tree, default_flow_style=False)
-                    token_calculator = TokenCalculator()
-                    render_token_analysis(tree_str, token_calculator, st.session_state.config.get('model', 'gpt-4'))
                 
             except Exception as e:
                 logger.error(f"Error generating codebase overview: {str(e)}")

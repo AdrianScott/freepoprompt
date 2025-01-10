@@ -117,9 +117,3 @@ def render_token_analysis(text: str, calculator: TokenCalculator, model: str):
             f"${analysis['output_cost']:.4f}",
             help="Estimated cost for output tokens"
         )
-    
-    # Show sample tokens
-    with st.expander("View Sample Tokens"):
-        st.write("First 10 tokens in the text:")
-        for token in analysis['sample_tokens']:
-            st.code(f"ID: {token['id']} → {token['text']!r}") 

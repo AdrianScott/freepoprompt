@@ -224,36 +224,14 @@ class SidebarComponent:
         else:
             for rule_name, rule_content in st.session_state.loaded_rules.items():
                 with st.expander(rule_name):
-                    if st.session_state.get('editing_rule') == rule_name:
-                        # Edit mode - show text area with save button
-                        edited_content = st.text_area(
-                            "Rule Content",
-                            value=rule_content,
-                            height=200,
-                            key=f"edit_{rule_name}_content"
-                        )
-                        if st.button("Save", key=f"save_{rule_name}"):
-                            # Save edited content
-                            st.session_state.config['saved_rules'][rule_name] = edited_content
-                            st.session_state.loaded_rules[rule_name] = edited_content
+                    # View mode - show content and delete button
+                    st.code(rule_content)
+                    if st.button("Delete", key=f"delete_{rule_name}"):
+                        del st.session_state.loaded_rules[rule_name]
+                        if rule_name in st.session_state.config.get('saved_rules', {}):
+                            del st.session_state.config['saved_rules'][rule_name]
                             self.queue_save_config(st.session_state.config)
-                            st.session_state.editing_rule = None
-                            st.rerun()
-                    else:
-                        # View mode - show content and edit/delete buttons
-                        st.code(rule_content)
-                        col1, col2 = st.columns([1, 1])
-                        with col1:
-                            if st.button("Update", key=f"edit_{rule_name}"):
-                                st.session_state.editing_rule = rule_name
-                                st.rerun()
-                        with col2:
-                            if st.button("Delete", key=f"delete_{rule_name}"):
-                                del st.session_state.loaded_rules[rule_name]
-                                if rule_name in st.session_state.config.get('saved_rules', {}):
-                                    del st.session_state.config['saved_rules'][rule_name]
-                                    self.queue_save_config(st.session_state.config)
-                                st.rerun()
+                        st.rerun()
 
     def _render_files_tab(self):
         """Render the files management tab."""
