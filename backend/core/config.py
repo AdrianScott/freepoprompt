@@ -43,7 +43,7 @@ DEFAULT_CONFIG = {
     ]
 }
 
-CONFIG_FILE = 'config.yaml'
+CONFIG_FILE = 'config/config.yaml'
 
 def load_config() -> Dict[str, Any]:
     """Load configuration from config.yaml."""
@@ -55,7 +55,7 @@ def load_config() -> Dict[str, Any]:
             logger.info("Configuration loaded successfully")
             return {**DEFAULT_CONFIG, **(config or {})}
         else:
-            logger.info("No config file found, using defaults")
+            logger.info("No config file found, using defaults, tried in path: %s", config_path)
             return DEFAULT_CONFIG
     except Exception as e:
         logger.error(f"Error loading config: {str(e)}")

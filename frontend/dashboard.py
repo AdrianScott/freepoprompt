@@ -18,13 +18,13 @@ def render_dashboard():
     # Render sidebar first
     sidebar = SidebarComponent()
     sidebar.render()
-    
-    st.title("Repository Crawler ")
-    
+
+    st.title("Prompt Prep")
+
     try:
         # Load configuration
         config = load_config()
-        
+
         # Show repository info
         repo_path = config.get('path', '')
         if repo_path:
@@ -33,28 +33,30 @@ def render_dashboard():
                 st.warning(f"Repository path does not exist: {repo_path}")
         else:
             st.warning("No repository selected")
-        
+
         # Initialize file handler and crawler
         file_handler = FileHandler(config['path'])
         crawler = RepositoryCrawler(config['path'], config)
-        
+
         # Create columns for layout
-        col1, col2 = st.columns([1, 2])
-        
-        with col1:
+        file_explorer, code_viewer = st.columns([1, 2])  # Renamed columns for clarity
+
+        with file_explorer:  # Left column for file tree and ignore patterns
+            # st.header("File Explorer")
             # Render file tree
             render_file_tree(config, file_handler, crawler)
-            
+
             # Render ignore patterns
             render_ignore_tree(config, file_handler, crawler)
-            
-        with col2:
+
+        with code_viewer:  # Right column for viewing and analyzing code
+            # st.header("Code Viewer")
             # Render file viewer
             render_file_viewer(config, file_handler, crawler)
-            
+
             # Render codebase view
             render_codebase_view(file_handler, crawler)
-            
+
     except Exception as e:
         st.error(f"Error loading dashboard: {str(e)}")
         st.stop()

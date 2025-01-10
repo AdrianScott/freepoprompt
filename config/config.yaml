@@ -41,16 +41,6 @@ excluded_extensions:
 - .so
 - .dylib
 saved_rules:
-  o1-pro-base.txt: 'You are an expert software engineer.
-
-
-    You are tasked with following my instructions.
-
-
-    Use the included project instructions as a general guide.
-
-
-    '
   global-rules.txt: 'Treat me as an advanced developer you report to.
 
 
@@ -116,3 +106,13 @@ saved_rules:
     \ <file_path>FILE PATH HERE</file_path> <file_code></file_code></file> REMAINING\
     \ FILES HERE </changed_files> </code_changes>\n\nSo the XML section will be:\n\
     \n__XML HERE__\n"
+  o1-pro-base.txt: 'You are an expert software engineer.
+
+
+    You are tasked with following my instructions.
+
+
+    Use the included project instructions as a general guide.
+
+
+    '

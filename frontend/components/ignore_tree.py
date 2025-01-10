@@ -70,13 +70,13 @@ class IgnoreTreeComponent:
             # Display current patterns
             if dir_patterns:
                 st.write("Ignored Directories:")
-                for i, pattern in enumerate(dir_patterns):
-                    st.code(pattern, key=f"dir_preview_{id(self)}_{i}")
+                for pattern in dir_patterns:
+                    st.code(pattern)
                     
             if file_patterns:
                 st.write("Ignored Files:")
-                for i, pattern in enumerate(file_patterns):
-                    st.code(pattern, key=f"file_preview_{id(self)}_{i}")
+                for pattern in file_patterns:
+                    st.code(pattern)
                     
             # TODO: Add preview of which files would be ignored
             
