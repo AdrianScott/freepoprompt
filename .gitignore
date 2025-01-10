@@ -1,6 +1,6 @@
 # Prompts output directory
 prompts/*_prompt.txt
-
+config/config.yaml
 # Python
 __pycache__/
 *.py[cod]
