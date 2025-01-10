@@ -1,11 +1,13 @@
 # Core dependencies
-streamlit>=1.22.0
-pyyaml>=6.0.0
+streamlit>=1.24.0
+pyyaml>=6.0
 tiktoken>=0.5.1
 pathlib>=1.0.1
+platformdirs>=3.0.0
 
 # Development dependencies
-pytest>=7.0.0
+pytest>=7.3.1
+pytest-cov>=4.1.0
 black>=22.0.0
 flake8>=6.0.0
 mypy>=1.0.0
@@ -15,4 +17,4 @@ types-PyYAML>=6.0.12
 types-setuptools>=67.1.0
 
 # Optional dependencies for better performance
-watchdog>=2.1.9  # Recommended by Streamlit for better performance 
+watchdog>=2.1.9  # Recommended by Streamlit for better performance

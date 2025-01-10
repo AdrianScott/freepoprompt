@@ -3,14 +3,17 @@
 import streamlit as st
 import logging
 from pathlib import Path
-from backend.core.config import load_config
+from backend.core.user_settings import get_effective_settings
 from frontend.dashboard import render_dashboard
 
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s [%(levelname)s] %(message)s',
-    datefmt='%Y-%m-%d %H:%M:%S'
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler('logs/app.log'),
+        logging.StreamHandler()
+    ]
 )
 
 logger = logging.getLogger(__name__)
@@ -20,23 +23,21 @@ def main():
     try:
         # Set page config
         st.set_page_config(
-            page_title="Repository Analyzer",
-            page_icon="",
+            page_title="Prompt Prep",
+            page_icon="📝",
             layout="wide",
             initial_sidebar_state="expanded"
         )
+
+        # Load and apply configuration
+        config = get_effective_settings()
         
-        # Initialize session state
-        if 'config' not in st.session_state:
-            st.session_state.config = load_config()
-            logger.info("Configuration and session state reset to default values (excluding loaded_rules)")
-            
         # Render dashboard
         render_dashboard()
-        
+
     except Exception as e:
-        logger.error("Unhandled exception in main", exc_info=True)
+        logger.exception("Error in main")
         st.error(f"An error occurred: {str(e)}")
-        
+
 if __name__ == "__main__":
     main()
