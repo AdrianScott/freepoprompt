@@ -23,11 +23,20 @@ class RepositoryCrawler:
             if not validate_path(self.root_path, allow_nonexistent=True):
                 raise ValueError(f"Invalid or unsafe root path: {root_path}")
                 
-            # Deep copy config to prevent reference issues
+            # Load .gitignore patterns
+            gitignore_dirs, gitignore_files = self._load_gitignore_patterns()
+            
+            # Deep copy config and merge with gitignore patterns
             self.config = {
                 'ignore_patterns': {
-                    'directories': list(config.get('ignore_patterns', {}).get('directories', [])),
-                    'files': list(config.get('ignore_patterns', {}).get('files', []))
+                    'directories': list(set(
+                        config.get('ignore_patterns', {}).get('directories', []) + 
+                        gitignore_dirs
+                    )),
+                    'files': list(set(
+                        config.get('ignore_patterns', {}).get('files', []) + 
+                        gitignore_files
+                    ))
                 },
                 'excluded_extensions': list(config.get('excluded_extensions', []))
             }
@@ -44,6 +53,61 @@ class RepositoryCrawler:
             logger.error(f"Failed to initialize crawler: {str(e)}")
             raise
             
+    def _parse_gitignore(self, gitignore_path: Union[str, Path]) -> Tuple[List[str], List[str]]:
+        """Parse .gitignore file and return (directory_patterns, file_patterns).
+        
+        Handles common .gitignore syntax:
+        - Lines starting with # are comments
+        - Blank lines are skipped
+        - ! negates the pattern (not implemented yet)
+        - / at start matches from root, otherwise matches anywhere
+        - / at end marks directory
+        - * matches anything except /
+        - ** matches anything including /
+        """
+        dir_patterns = []
+        file_patterns = []
+        
+        try:
+            with open(gitignore_path, 'r') as f:
+                for line in f:
+                    line = line.strip()
+                    # Skip comments and empty lines
+                    if not line or line.startswith('#'):
+                        continue
+                        
+                    # Skip negation patterns for now
+                    if line.startswith('!'):
+                        continue
+                        
+                    # Remove leading and trailing slashes
+                    pattern = line.strip('/')
+                    
+                    # If pattern ends with /, it's a directory pattern
+                    if line.endswith('/'):
+                        if '**' in pattern:
+                            # For **/ patterns, match directories at any depth
+                            pattern = pattern.replace('**', '*')
+                        dir_patterns.append(pattern)
+                    else:
+                        if pattern.startswith('**/'):
+                            # For **/ patterns, match files at any depth
+                            pattern = pattern.replace('**/', '')
+                        file_patterns.append(pattern)
+            
+            return dir_patterns, file_patterns
+            
+        except Exception as e:
+            logger.warning(f"Error parsing .gitignore: {str(e)}")
+            return [], []
+            
+    def _load_gitignore_patterns(self) -> Tuple[List[str], List[str]]:
+        """Load patterns from .gitignore if it exists."""
+        gitignore_path = Path(self.root_path) / '.gitignore'
+        if gitignore_path.is_file():
+            return self._parse_gitignore(gitignore_path)
+        return [], []
+    
     def _get_config_hash(self) -> str:
         """Get a more reliable hash of current config for cache invalidation."""
         try:
