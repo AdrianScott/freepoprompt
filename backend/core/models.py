@@ -28,7 +28,12 @@ class IgnorePatterns(BaseModel):
         default_factory=lambda: [
             "*.pyc", "*.pyo", "*.pyd",
             ".DS_Store", "Thumbs.db",
-            "*.log", "*.sqlite", "*.db"
+            "*.log", "*.sqlite", "*.db",
+            # Binary files
+            "*.jpg", "*.jpeg", "*.png", "*.gif", "*.bmp",
+            "*.mp3", "*.mp4", "*.avi", "*.mov",
+            "*.zip", "*.tar", "*.gz", "*.7z",
+            "*.exe", "*.dll", "*.so", "*.dylib"
         ],
         description="List of file patterns to ignore"
     )

@@ -441,7 +441,7 @@ class SidebarComponent:
                         repo_path = str(Path(selected_path))
                         st.session_state.config['path'] = repo_path
                         self.queue_save_config(st.session_state.config)
-                        st.experimental_rerun()
+                        st.rerun()
 
                 if repo_path != st.session_state.config.get('path', ''):
                     st.session_state.config['path'] = repo_path
