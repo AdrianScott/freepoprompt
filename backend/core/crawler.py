@@ -27,18 +27,20 @@ class RepositoryCrawler:
             gitignore_dirs, gitignore_files = self._load_gitignore_patterns()
             
             # Deep copy config and merge with gitignore patterns
-            self.config = {
-                'ignore_patterns': {
-                    'directories': list(set(
-                        config.get('ignore_patterns', {}).get('directories', []) + 
-                        gitignore_dirs
-                    )),
-                    'files': list(set(
-                        config.get('ignore_patterns', {}).get('files', []) + 
-                        gitignore_files
-                    ))
-                },
-                'excluded_extensions': list(config.get('excluded_extensions', []))
+            self.config = config.copy()  # Preserve all config fields
+            
+            # Update ignore patterns with gitignore
+            if 'ignore_patterns' not in self.config:
+                self.config['ignore_patterns'] = {}
+            self.config['ignore_patterns'] = {
+                'directories': list(set(
+                    config.get('ignore_patterns', {}).get('directories', []) + 
+                    gitignore_dirs
+                )),
+                'files': list(set(
+                    config.get('ignore_patterns', {}).get('files', []) + 
+                    gitignore_files
+                ))
             }
             
             # Cache for file tree to prevent unnecessary recalculation
@@ -117,7 +119,7 @@ class RepositoryCrawler:
                     'directories': sorted(self.config['ignore_patterns']['directories']),
                     'files': sorted(self.config['ignore_patterns']['files'])
                 },
-                'excluded_extensions': sorted(self.config['excluded_extensions'])
+                'excluded_extensions': sorted(self.config.get('excluded_extensions', []))
             }
             # Use stable string representation
             config_str = f"dirs:{','.join(sorted_config['ignore_patterns']['directories'])}|files:{','.join(sorted_config['ignore_patterns']['files'])}|exts:{','.join(sorted_config['excluded_extensions'])}"
@@ -186,7 +188,7 @@ class RepositoryCrawler:
                 
             # Extension check
             extension = Path(path_str).suffix.lower()
-            if extension in self.config['excluded_extensions']:
+            if extension in self.config.get('excluded_extensions', []):
                 return True
                 
             return False

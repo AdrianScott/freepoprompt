@@ -143,11 +143,11 @@ class SidebarComponent:
 
     def clear_state(self):
         """Clear all sidebar-related state."""
-        st.session_state.user_settings = {}
-        st.session_state.config = st.session_state.defaults.copy()
-        st.session_state.loaded_config = None
+        # Keep creating_new_rule state
+        creating_new_rule = st.session_state.get('creating_new_rule', False)
+        
+        # Clear state
         st.session_state.loaded_rules = {}
-        st.session_state.creating_new_rule = False
         st.session_state.editing_rule = None
         st.session_state.new_rule_name = ""
         st.session_state.new_rule_content = ""
@@ -157,6 +157,10 @@ class SidebarComponent:
             del st.session_state.crawler
         if 'config_hash' in st.session_state:
             del st.session_state.config_hash
+            
+        # Restore creating_new_rule state
+        st.session_state.creating_new_rule = creating_new_rule
+        
         self.queue_save_config(st.session_state.defaults)
 
     def _add_rule(self, rule_name: str, rule_content: str) -> bool:
