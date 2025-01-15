@@ -1,20 +1,15 @@
+# Core dependencies - SECURITY NOTES
+# streamlit: Web framework, latest stable version with security updates
+# pyyaml: ALWAYS use safe_load(), NEVER use load() - CVE-2020-14343 fixed in 5.4+
+# tiktoken: OpenAI tokenizer, no network access
+# platformdirs: File system paths only, no network access
+
 # Core dependencies
-streamlit>=1.24.0
-pyyaml>=6.0
-tiktoken>=0.5.1
-pathlib>=1.0.1
-platformdirs>=3.0.0
-
-# Development dependencies
-pytest>=7.3.1
-pytest-cov>=4.1.0
-black>=22.0.0
-flake8>=6.0.0
-mypy>=1.0.0
-
-# Type checking
-types-PyYAML>=6.0.12
-types-setuptools>=67.1.0
+setuptools==69.0.3  # Required for Python 3.12 (provides distutils)
+streamlit==1.41.0  # Latest stable version with security updates
+pyyaml==6.0.1
+tiktoken==0.5.1
+platformdirs==3.11.0
 
 # Optional dependencies for better performance
-watchdog>=2.1.9  # Recommended by Streamlit for better performance
+watchdog==2.1.9  # Recommended by Streamlit for better performance

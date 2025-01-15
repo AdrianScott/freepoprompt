@@ -25,20 +25,27 @@ def render_dashboard():
     try:
         # Load configuration
         config = get_effective_settings()
+        logger.info(f"Dashboard loaded config: {config}")
 
         # Show repository info
         repo_path = config.get('path', '')
+        logger.info(f"Using repository path: {repo_path}")
+        
         if repo_path:
             st.markdown(f"**Selected Repository:** `{repo_path}`")
             if not os.path.exists(repo_path):
+                logger.error(f"Repository path does not exist: {repo_path}")
                 st.warning(f"Repository path does not exist: {repo_path}")
                 return  # Don't try to initialize handlers with invalid path
+            logger.info(f"Repository path exists: {repo_path}")
         else:
+            logger.warning("No repository path selected")
             st.info("No repository selected. Please select a repository path in the sidebar.")
             return  # Don't try to initialize handlers without a path
 
         # Initialize file handler and crawler
-        file_handler = FileHandler(repo_path)  # Use repo_path instead of config['path']
+        logger.info(f"Initializing handlers with path: {repo_path}")
+        file_handler = FileHandler(repo_path)
         crawler = RepositoryCrawler(repo_path, config)
 
         # Create columns for layout
