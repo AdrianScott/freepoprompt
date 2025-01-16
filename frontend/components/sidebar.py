@@ -19,17 +19,17 @@ logger = logging.getLogger(__name__)
 
 class SidebarComponent:
     """Sidebar component for managing application settings."""
-    
+
     _instance = None
     _config_lock = Lock()
     _save_timer = None
-    
+
     def __new__(cls):
         if cls._instance is None:
             cls._instance = super(SidebarComponent, cls).__new__(cls)
             cls._instance._initialized = False
         return cls._instance
-    
+
     def __init__(self):
         if not self._initialized:
             logger.info("Initializing SidebarComponent")
@@ -42,7 +42,7 @@ class SidebarComponent:
             st.session_state.needs_save = False
         if 'last_config' not in st.session_state:
             st.session_state.last_config = None
-            
+
         with self._config_lock:
             if 'defaults' not in st.session_state:
                 st.session_state.defaults = load_defaults()
@@ -61,11 +61,13 @@ class SidebarComponent:
                 st.session_state.creating_new_rule = False
             if 'editing_rule' not in st.session_state:
                 st.session_state.editing_rule = None
+            if 'editing_rule_content' not in st.session_state:
+                st.session_state.editing_rule_content = ""
             if 'new_rule_name' not in st.session_state:
                 st.session_state.new_rule_name = ""
             if 'new_rule_content' not in st.session_state:
                 st.session_state.new_rule_content = ""
-            
+
             # Other state
             if 'loaded_config' not in st.session_state:
                 st.session_state.loaded_config = None
@@ -87,7 +89,7 @@ class SidebarComponent:
 
     def save_config_if_needed(self) -> bool:
         """Save config only if there are actual changes.
-        
+
         Returns:
             bool: True if save was successful or not needed, False if save failed
         """
@@ -95,22 +97,22 @@ class SidebarComponent:
         if not st.session_state.needs_save:
             logger.info("No save needed (needs_save is False)")
             return True
-            
+
         with self._config_lock:
             logger.info("Acquired config lock for saving")
             current_config = st.session_state.config
             last_config = st.session_state.last_config
-            
+
             logger.info(f"Current config: {current_config}")
             logger.info(f"Last config: {last_config}")
-            
+
             # Always save if last_config is None (forced save)
             if last_config is None or current_config != last_config:
                 logger.info("Config has changed or force save requested...")
                 # Only save differences from defaults
                 defaults = st.session_state.defaults
                 user_settings = {
-                    k: v for k, v in current_config.items() 
+                    k: v for k, v in current_config.items()
                     if k not in defaults or v != defaults[k]
                 }
                 logger.info(f"Saving user settings: {user_settings}")
@@ -126,7 +128,7 @@ class SidebarComponent:
                     return False
             else:
                 logger.info("Config unchanged, no save needed")
-            
+
             return True
 
     def load_config_file(self, uploaded_file) -> bool:
@@ -145,10 +147,11 @@ class SidebarComponent:
         """Clear all sidebar-related state."""
         # Keep creating_new_rule state
         creating_new_rule = st.session_state.get('creating_new_rule', False)
-        
+
         # Clear state
         st.session_state.loaded_rules = {}
         st.session_state.editing_rule = None
+        st.session_state.editing_rule_content = ""
         st.session_state.new_rule_name = ""
         st.session_state.new_rule_content = ""
         if 'current_tree' in st.session_state:
@@ -157,26 +160,26 @@ class SidebarComponent:
             del st.session_state.crawler
         if 'config_hash' in st.session_state:
             del st.session_state.config_hash
-            
+
         # Restore creating_new_rule state
         st.session_state.creating_new_rule = creating_new_rule
-        
+
         self.queue_save_config(st.session_state.defaults)
 
     def _add_rule(self, rule_name: str, rule_content: str) -> bool:
         """Add a new rule with proper error handling and state management.
-        
+
         Args:
             rule_name: Name of the rule to add
             rule_content: Content of the rule
-            
+
         Returns:
             bool: True if rule was added successfully
         """
         try:
             logger.info(f"[Add] Processing rule: {rule_name}")
             logger.info(f"[Add] Content length: {len(rule_content)} chars")
-            
+
             # Initialize if needed
             if 'saved_rules' not in st.session_state.config:
                 logger.info("[Add] Initializing saved_rules in config")
@@ -184,19 +187,19 @@ class SidebarComponent:
             if 'loaded_rules' not in st.session_state:
                 logger.info("[Add] Initializing loaded_rules in session")
                 st.session_state.loaded_rules = {}
-            
+
             # Save rule
             logger.info(f"[Add] Saving rule to config and session...")
             st.session_state.config['saved_rules'][rule_name] = rule_content
             st.session_state.loaded_rules[rule_name] = rule_content
-            
+
             # Force immediate save
             logger.info("[Add] Queueing config save...")
             self.queue_save_config(st.session_state.config)
-            
+
             logger.info("[Add] Forcing immediate save...")
             save_success = self.save_config_if_needed()
-            
+
             if save_success:
                 logger.info("[Add] Save successful")
                 st.success(f"Rule '{rule_name}' added successfully!")
@@ -204,15 +207,54 @@ class SidebarComponent:
                 logger.error("[Add] Save failed")
                 st.error("Failed to save rule to config file")
                 return False
-            
+
             logger.info(f"[Add] Final state - loaded_rules: {st.session_state.loaded_rules}")
             logger.info(f"[Add] Final state - config saved_rules: {st.session_state.config.get('saved_rules', {})}")
-            
+
             return True
-            
+
         except Exception as e:
             logger.error(f"[Add] Error adding rule: {str(e)}", exc_info=True)
             st.error(f"Error adding rule: {str(e)}")
+            return False
+
+    def _save_rule_edits(self, rule_name: str, new_content: str) -> bool:
+        """
+        Save edits to an existing rule.
+
+        Args:
+            rule_name: The rule name being edited
+            new_content: The updated content
+
+        Returns:
+            bool: True if saved successfully, False otherwise
+        """
+        try:
+            logger.info(f"[Edit] Saving changes for rule: {rule_name}")
+            if rule_name not in st.session_state.loaded_rules:
+                st.error(f"Rule '{rule_name}' does not exist.")
+                return False
+
+            # Update the rule content in both session and config
+            st.session_state.loaded_rules[rule_name] = new_content
+            st.session_state.config['saved_rules'][rule_name] = new_content
+
+            # Queue config save
+            self.queue_save_config(st.session_state.config)
+            save_success = self.save_config_if_needed()
+
+            if save_success:
+                logger.info(f"[Edit] Successfully saved changes to rule: {rule_name}")
+                st.success(f"Rule '{rule_name}' updated successfully!")
+                return True
+            else:
+                logger.error("[Edit] Failed to save changes")
+                st.error("Failed to save changes to the rule")
+                return False
+
+        except Exception as e:
+            logger.error(f"[Edit] Error saving rule edits: {str(e)}", exc_info=True)
+            st.error(f"Error saving rule edits: {str(e)}")
             return False
 
     def _render_rules_tab(self):
@@ -220,19 +262,19 @@ class SidebarComponent:
         logger.info("=== Starting _render_rules_tab ===")
         logger.info(f"Current loaded_rules: {st.session_state.loaded_rules}")
         logger.info(f"Current config saved_rules: {st.session_state.config.get('saved_rules', {})}")
-        
+
         st.markdown("### Rules Management")
-        
+
         # Debug info
         with st.expander("Debug Info"):
             st.write("Current Rules:", st.session_state.loaded_rules)
             st.write("Config Rules:", st.session_state.config.get('saved_rules', {}))
             st.write("Needs Save:", st.session_state.needs_save)
             st.write("Config Path:", get_user_settings_path())
-        
+
         # Add rule section
         st.markdown("#### Add Rule")
-        
+
         # File upload for rules
         uploaded_file = st.file_uploader(
             "Upload a rule file",
@@ -240,18 +282,18 @@ class SidebarComponent:
             key="rule_uploader",
             help="Drag and drop or browse for a rule file"
         )
-        
+
         if uploaded_file is not None:
             try:
                 # Get the rule content
                 rule_content = uploaded_file.getvalue().decode()
                 rule_name = Path(uploaded_file.name).stem
-                
+
                 if self._add_rule(rule_name, rule_content):
                     # Clear the uploader state
                     st.session_state.rule_uploader = None
                     st.rerun()
-                    
+
             except Exception as e:
                 logger.error(f"[Upload] Error processing file: {str(e)}", exc_info=True)
                 st.error(f"Error processing file: {str(e)}")
@@ -273,7 +315,7 @@ class SidebarComponent:
                     value="",
                     key="new_rule_name_input"
                 )
-                
+
                 new_rule_content = st.text_area(
                     "Rule Content",
                     value="",
@@ -290,56 +332,91 @@ class SidebarComponent:
                         # Clear form state
                         st.session_state.creating_new_rule = False
                         st.rerun()
-                
+
                 elif cancel:
                     logger.info("[Create] Canceling rule creation")
                     st.session_state.creating_new_rule = False
                     st.rerun()
 
-        # Show existing rules
         st.markdown("#### Existing Rules")
         if not st.session_state.loaded_rules:
             st.info("No rules added yet")
         else:
             for rule_name, rule_content in st.session_state.loaded_rules.items():
-                with st.expander(rule_name):
-                    st.code(rule_content)
-                    if st.button("Delete", key=f"delete_{rule_name}"):
-                        try:
-                            logger.info(f"[Delete] Deleting rule: {rule_name}")
-                            
-                            # Remove from session
-                            logger.info("[Delete] Removing from loaded_rules")
-                            del st.session_state.loaded_rules[rule_name]
-                            
-                            # Remove from config
-                            if rule_name in st.session_state.config.get('saved_rules', {}):
-                                logger.info("[Delete] Removing from config saved_rules")
-                                del st.session_state.config['saved_rules'][rule_name]
-                                
-                                # Force immediate save
-                                logger.info("[Delete] Queueing config save...")
-                                self.queue_save_config(st.session_state.config)
-                                
-                                logger.info("[Delete] Forcing immediate save...")
-                                save_success = self.save_config_if_needed()
-                                
-                                if save_success:
-                                    logger.info("[Delete] Save successful")
-                                    st.success(f"Rule '{rule_name}' deleted successfully!")
-                                else:
-                                    logger.error("[Delete] Save failed")
-                                    st.error("Failed to save config after deleting rule")
-                            
-                            logger.info(f"[Delete] Final state - loaded_rules: {st.session_state.loaded_rules}")
-                            logger.info(f"[Delete] Final state - config saved_rules: {st.session_state.config.get('saved_rules', {})}")
-                            
-                            st.rerun()
-                            
-                        except Exception as e:
-                            logger.error(f"[Delete] Error deleting rule: {str(e)}", exc_info=True)
-                            st.error(f"Error deleting rule: {str(e)}")
-        
+                # Check if we are editing this rule
+                if st.session_state.editing_rule == rule_name:
+                    with st.expander(f"Editing: {rule_name}", expanded=True):
+                        new_content = st.text_area(
+                            "Edit Rule Content",
+                            value=st.session_state.editing_rule_content,
+                            height=200,
+                            key=f"edit_content_{rule_name}",
+                        )
+
+                        col_save, col_cancel = st.columns(2)
+                        with col_save:
+                            if st.button("Save Edits", key=f"save_edits_{rule_name}"):
+                                if self._save_rule_edits(rule_name, new_content):
+                                    # Clear editing state
+                                    st.session_state.editing_rule = None
+                                    st.session_state.editing_rule_content = ""
+                                    st.rerun()
+
+                        with col_cancel:
+                            if st.button("Cancel Edits", key=f"cancel_edits_{rule_name}"):
+                                st.session_state.editing_rule = None
+                                st.session_state.editing_rule_content = ""
+                                st.rerun()
+                else:
+                    with st.expander(rule_name):
+                        st.code(rule_content)
+                        # Edit + Delete buttons
+                        edit_col, delete_col = st.columns([1, 1])
+
+                        with edit_col:
+                            if st.button("Edit", key=f"edit_rule_{rule_name}"):
+                                # Switch to editing mode
+                                st.session_state.editing_rule = rule_name
+                                st.session_state.editing_rule_content = rule_content
+                                st.rerun()
+
+                        with delete_col:
+                            if st.button("Delete", key=f"delete_rule_{rule_name}"):
+                                try:
+                                    logger.info(f"[Delete] Deleting rule: {rule_name}")
+
+                                    # Remove from session
+                                    logger.info("[Delete] Removing from loaded_rules")
+                                    del st.session_state.loaded_rules[rule_name]
+
+                                    # Remove from config
+                                    if rule_name in st.session_state.config.get('saved_rules', {}):
+                                        logger.info("[Delete] Removing from config saved_rules")
+                                        del st.session_state.config['saved_rules'][rule_name]
+
+                                        # Force immediate save
+                                        logger.info("[Delete] Queueing config save...")
+                                        self.queue_save_config(st.session_state.config)
+
+                                        logger.info("[Delete] Forcing immediate save...")
+                                        save_success = self.save_config_if_needed()
+
+                                        if save_success:
+                                            logger.info("[Delete] Save successful")
+                                            st.success(f"Rule '{rule_name}' deleted successfully!")
+                                        else:
+                                            logger.error("[Delete] Save failed")
+                                            st.error("Failed to save config after deleting rule")
+
+                                    logger.info(f"[Delete] Final state - loaded_rules: {st.session_state.loaded_rules}")
+                                    logger.info(f"[Delete] Final state - config saved_rules: {st.session_state.config.get('saved_rules', {})}")
+
+                                    st.rerun()
+
+                                except Exception as e:
+                                    logger.error(f"[Delete] Error deleting rule: {str(e)}", exc_info=True)
+                                    st.error(f"Error deleting rule: {str(e)}")
+
         logger.info("=== Finished _render_rules_tab ===")
 
     def _render_files_tab(self):
@@ -391,10 +468,10 @@ class SidebarComponent:
         """Render the sidebar."""
         with st.sidebar:
             st.title("Settings")
-            
+
             # Create tabs
             settings_tab, rules_tab, files_tab = st.tabs(["Settings", "Rules", "Files"])
-            
+
             # Settings tab - contains all configuration
             with settings_tab:
                 # Model selection
@@ -432,7 +509,6 @@ class SidebarComponent:
                 )
 
                 if st.button("Browse for Repository", help="Browse for repository directory", use_container_width=True):
-                    # Use system file dialog
                     import tkinter as tk
                     from tkinter import filedialog
                     root = tk.Tk()
@@ -454,10 +530,10 @@ class SidebarComponent:
             # Rules tab
             with rules_tab:
                 self._render_rules_tab()
-            
+
             # Files tab
             with files_tab:
                 self._render_files_tab()
-                
+
             # Save any pending changes at the end of rendering
             self.save_config_if_needed()

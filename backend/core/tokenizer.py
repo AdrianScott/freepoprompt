@@ -4,7 +4,7 @@ import logging
 
 class TokenCalculator:
     """Handles token calculation and cost estimation for different models."""
-    
+
     # Token cost per 1K tokens (as of 2024)
     MODEL_COSTS = {
         'gpt-4': {'input': 0.03, 'output': 0.06},
@@ -18,17 +18,20 @@ class TokenCalculator:
         self.logger = logging.getLogger(__name__)
 
     def count_tokens(
-        self, 
-        text: str, 
-        model: str = "gpt-4"
+        self,
+        text: str,
+        model: str = "gpt-4",
+        overhead_ratio: float = 1.1
     ) -> Tuple[int, List[int]]:
         """
-        Count tokens in text for a specific model.
+        Count tokens in text for a specific model, with an additional overhead_ratio
+        to account for potential system/assistant tokens or conversation structure.
         
         Args:
             text: Text to analyze
             model: Model name to use for tokenization
-            
+            overhead_ratio: Multiplier to approximate overhead tokens
+
         Returns:
             Tuple of (token count, list of token IDs)
         """
@@ -41,22 +44,24 @@ class TokenCalculator:
             encoding = tiktoken.get_encoding("cl100k_base")
 
         token_ids = encoding.encode(text)
-        return len(token_ids), token_ids
+        base_count = len(token_ids)
+        adjusted_count = int(base_count * overhead_ratio)
+        return adjusted_count, token_ids
 
     def calculate_cost(
-        self, 
-        token_count: int, 
-        model: str = "gpt-4", 
+        self,
+        token_count: int,
+        model: str = "gpt-4",
         is_output: bool = False
     ) -> float:
         """
         Calculate cost for token count.
-        
+
         Args:
             token_count: Number of tokens
             model: Model name
             is_output: Whether these are output tokens
-            
+
         Returns:
             Estimated cost in USD
         """
@@ -71,22 +76,24 @@ class TokenCalculator:
         return (token_count / 1000) * cost_per_1k
 
     def analyze_text(
-        self, 
-        text: str, 
-        model: str = "gpt-3.5-turbo"
+        self,
+        text: str,
+        model: str = "gpt-3.5-turbo",
+        overhead_ratio: float = 1.1
     ) -> Dict[str, Any]:
         """
         Perform complete token analysis of text.
-        
+
         Args:
             text: Text to analyze
             model: Model to use
-            
+            overhead_ratio: Multiplier to approximate overhead tokens
+
         Returns:
             Dictionary containing analysis results
         """
-        token_count, token_ids = self.count_tokens(text, model)
-        
+        token_count, token_ids = self.count_tokens(text, model, overhead_ratio)
+
         # Get sample tokens for display
         try:
             encoding = tiktoken.encoding_for_model(model)
@@ -111,11 +118,11 @@ class TokenCalculator:
 
 class TokenAnalyzer:
     """High-level interface for token analysis with caching and UI-friendly output."""
-    
+
     def __init__(self, model: str = "gpt-4"):
         """
         Initialize the token analyzer.
-        
+
         Args:
             model: Default model to use for analysis
         """
@@ -123,16 +130,16 @@ class TokenAnalyzer:
         self.model = model
         self.cache = {}
         self.logger = logging.getLogger(__name__)
-    
+
     def count_tokens(self, text: str) -> int:
         """
         Count tokens in text.
-        
+
         Args:
             text: Text to analyze
-            
+
         Returns:
-            Number of tokens
+            Number of tokens (adjusted for overhead).
         """
         try:
             token_count, _ = self.calculator.count_tokens(text, self.model)
@@ -144,22 +151,22 @@ class TokenAnalyzer:
     def analyze_content(self, content: str) -> Dict[str, Any]:
         """
         Analyze content and return UI-friendly results.
-        
+
         Args:
             content: Text content to analyze
-            
+
         Returns:
             Dictionary with analysis results formatted for UI display
         """
-        # Check cache
+        # Create a cache key to avoid repeated calculations
         cache_key = f"{content[:100]}_{len(content)}_{self.model}"
         if cache_key in self.cache:
             return self.cache[cache_key]
-        
+
         try:
-            # Get raw analysis
-            analysis = self.calculator.analyze_text(content, self.model)
-            
+            # Get raw analysis with overhead
+            analysis = self.calculator.analyze_text(content, self.model, overhead_ratio=1.1)
+
             # Format for UI
             result = {
                 'Statistics': {
@@ -173,11 +180,11 @@ class TokenAnalyzer:
                     for t in analysis['sample_tokens']
                 ]
             }
-            
+
             # Cache result
             self.cache[cache_key] = result
             return result
-            
+
         except Exception as e:
             self.logger.error(f"Error analyzing content: {str(e)}")
             return {
