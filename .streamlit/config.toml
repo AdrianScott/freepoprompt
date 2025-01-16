@@ -1,2 +1,6 @@
 [theme]
 primaryColor = "#0E4C92"  # Dark blue color, matching the settings UI
+[browser]
+serverAddress = "localhost"
+serverPort = 8501
+gatherUsageStats = false
