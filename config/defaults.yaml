@@ -1,6 +1,6 @@
-path: ''  # Default empty path
+path: "" # Default empty path
 use_relative_paths: true
-model: 'gpt-4'
+model: "gpt-4"
 
 ignore_patterns:
   directories:
@@ -16,29 +16,32 @@ ignore_patterns:
     - .pytest_cache
     - target
   files:
-    - '*.pyc'
-    - '*.pyo'
-    - '*.pyd'
-    - '.DS_Store'
-    - 'Thumbs.db'
-    - '*.log'
-    - '*.sqlite'
-    - '*.db'
-    # Binary files
-    - '*.jpg'
-    - '*.jpeg'
-    - '*.png'
-    - '*.gif'
-    - '*.bmp'
-    - '*.mp3'
-    - '*.mp4'
-    - '*.avi'
-    - '*.mov'
-    - '*.zip'
-    - '*.tar'
-    - '*.gz'
-    - '*.7z'
-    - '*.exe'
-    - '*.dll'
-    - '*.so'
-    - '*.dylib'
+    - "*.pyc"
+    - "*.pyo"
+    - "*.pyd"
+    - ".DS_Store"
+    - "Thumbs.db"
+    - "*.log"
+    - "*.sqlite"
+    - "*.db"
+    - "*.jpg"
+    - "*.jpeg"
+    - "*.png"
+    - "*.gif"
+    - "*.bmp"
+    - "*.mp3"
+    - "*.mp4"
+    - "*.avi"
+    - "*.mov"
+    - "*.zip"
+    - "*.tar"
+    - "*.gz"
+    - "*.7z"
+    - "*.exe"
+    - "*.dll"
+    - "*.so"
+    - "*.dylib"
+    - "*.ttf"
+    - "*.otf"
+    - "*.woff"
+    - "*.woff2"
