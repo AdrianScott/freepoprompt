@@ -467,6 +467,9 @@ class SidebarComponent:
     def render(self):
         """Render the sidebar."""
         with st.sidebar:
+            # Add logo at the top-left
+            st.image("frontend/static/images/freepoprompt-logoss.jpeg")
+
             st.title("Settings")
 
             # Create tabs
