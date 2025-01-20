@@ -20,7 +20,7 @@ def render_dashboard():
     sidebar = SidebarComponent()
     sidebar.render()
 
-    st.title("Prompt Prep")
+    st.title("Freepo Prompt")
 
     try:
         # Load configuration
@@ -30,7 +30,7 @@ def render_dashboard():
         # Show repository info
         repo_path = config.get('path', '')
         logger.info(f"Using repository path: {repo_path}")
-        
+
         if repo_path:
             st.markdown(f"**Selected Repository:** `{repo_path}`")
             if not os.path.exists(repo_path):
