@@ -197,7 +197,7 @@ def build_prompt(repo_path: str, file_tree: Dict[str, Any], file_handler: FileHa
 
 def render_codebase_view(file_handler: FileHandler, crawler: RepositoryCrawler):
     """Render the codebase view page."""
-    st.title("Codebase Parser ")
+    st.subheader("Generate Prompt")
 
     # Get repository path from config
     repo_path = st.session_state.config.get('path', '')
