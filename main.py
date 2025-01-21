@@ -2,16 +2,22 @@
 
 import streamlit as st
 import logging
+import os
 from pathlib import Path
 from backend.core.user_settings import get_effective_settings, load_defaults, load_user_settings
 from frontend.dashboard import render_dashboard
+
+# Ensure logs directory exists
+log_dir = Path('logs')
+log_dir.mkdir(exist_ok=True)
+log_file = log_dir / 'app.log'
 
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.FileHandler('logs/app.log'),
+        logging.FileHandler(log_file),
         logging.StreamHandler()
     ]
 )

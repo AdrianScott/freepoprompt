@@ -10,6 +10,7 @@ streamlit==1.41.0  # Latest stable version with security updates
 pyyaml==6.0.1
 tiktoken==0.5.1
 platformdirs==3.11.0
+pydantic==2.5.2
 
 # Optional dependencies for better performance
 watchdog==2.1.9  # Recommended by Streamlit for better performance
