@@ -19,19 +19,23 @@ git clone https://github.com/adrianscott/freepoprompt.git
 cd freepoprompt
 ```
 
-2. Create and activate a virtual environment:
+2. Install system dependencies:
 
 ```bash
-# Windows
-python -m venv venv
-.\venv\Scripts\activate
+# Ubuntu/Debian
+sudo apt-get install python3-tk
 
-# Linux/macOS
-python3 -m venv venv
-source venv/bin/activate
+# Fedora
+sudo dnf install python3-tkinter
+
+# Arch Linux
+sudo pacman -S tk
+
+# macOS (if not already installed)
+brew install python-tk
 ```
 
-3. Install dependencies:
+3. Install Python dependencies:
 
 ```bash
 pip install -r requirements.txt
