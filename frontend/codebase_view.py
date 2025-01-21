@@ -64,6 +64,15 @@ def analyze_codebase(repo_path: str, file_handler: FileHandler, file_tree: Dict[
         overview.append(tree_structure)
         overview.append("</file_tree>\n")
 
+        # Add rules before file contents
+        if 'saved_rules' in st.session_state.config:
+            overview.append("<meta_prompts>")
+            for i, (rule_name, rule_content) in enumerate(st.session_state.config['saved_rules'].items(), 1):
+                overview.append(f'<meta prompt {i} = "{rule_name}">')
+                overview.append(rule_content)
+                overview.append(f'</meta prompt {i}>')
+            overview.append("</meta_prompts>\n")
+
         # Generate file contents
         overview.append("<file_contents>")
         files_info = process_tree(file_tree, file_handler)
@@ -75,13 +84,6 @@ def analyze_codebase(repo_path: str, file_handler: FileHandler, file_tree: Dict[
             overview.append(file_info['content'])
             overview.append("```\n")
         overview.append("</file_contents>\n")
-
-        # Add rules
-        if 'saved_rules' in st.session_state.config:
-            for i, (rule_name, rule_content) in enumerate(st.session_state.config['saved_rules'].items(), 1):
-                overview.append(f'<meta prompt {i} = "{rule_name}">')
-                overview.append(rule_content)
-                overview.append(f'</meta prompt {i}>\n')
 
         return "\n".join(overview)
 
