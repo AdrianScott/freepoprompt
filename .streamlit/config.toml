@@ -4,3 +4,7 @@ primaryColor = "#0E4C92"  # Dark blue color, matching the settings UI
 serverAddress = "localhost"
 serverPort = 8501
 gatherUsageStats = false
+
+
+[server]
+headless = true

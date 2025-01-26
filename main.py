@@ -68,7 +68,7 @@ def main():
     try:
         # Set page config
         st.set_page_config(
-            page_title="Prompt Prep",
+            page_title="FreepoPrompt",
             page_icon="📝",
             layout="wide",
             initial_sidebar_state="expanded"
@@ -76,7 +76,7 @@ def main():
 
         # Initialize all session state
         initialize_session_state()
-        
+
         # Render dashboard
         render_dashboard()
 
