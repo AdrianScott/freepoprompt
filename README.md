@@ -49,6 +49,8 @@ pip install -r requirements.txt
 streamlit run main.py
 ```
 
+to run on another port, use e.g. `streamlit run main.py --browser.serverPort 8502`
+
 2. Using the interface:
    - Select repository using the visual file browser
    - Configure ignore patterns if needed
